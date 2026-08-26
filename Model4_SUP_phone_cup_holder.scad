@@ -120,9 +120,9 @@ module rope_runoff_channels() {
             cube([cup_outer_d+8,slot_width,cup_top_z+1-slot_bottom_z],center=true);
         translate([(cup_outer_d+8)/2-1,0,slot_bottom_z])
             rotate([0,90,0]) cylinder(r=slot_width/2,h=cup_outer_d+8,center=true);
-        // Remove every possible roof above the rounded floor: this is a groove,
-        // never a tunnel.
-        translate([48,0,13.5]) cube([24,8.2,14],center=true);
+        // Constant 7 mm sidewalls; lower hulls retain the rounded U-floor.
+        translate([48,0,(9.5+cup_top_z+2)/2])
+            cube([24,slot_width,cup_top_z+2-9.5],center=true);
         hull() {
             translate([37,0,slot_bottom_z]) sphere(r=4);
             translate([41,0,slot_bottom_z]) sphere(r=4);

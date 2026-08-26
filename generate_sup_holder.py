@@ -85,6 +85,47 @@ def pick_funnel(depth, surface_z, center_xy, rotation_deg, variation=0.0):
     return trimesh.Trimesh(vertices=vertices, faces=np.asarray(faces), process=True)
 
 
+def open_channel_walls(path_points, width, top_z, radial_angle):
+    """Watertight cutter above a curved centreline with two smooth sidewalls.
+
+    Unioning this with a same-radius round sweep leaves the lower semicircle of
+    the sweep intact and removes everything above it, creating a true open U.
+    """
+    lateral = np.array([-np.sin(radial_angle), np.cos(radial_angle), 0.0])
+    half = width / 2
+    vertices = []
+    for point in path_points:
+        left = point + lateral * half
+        right = point - lateral * half
+        vertices.extend(
+            (
+                left,
+                right,
+                np.array([left[0], left[1], top_z]),
+                np.array([right[0], right[1], top_z]),
+            )
+        )
+    faces = []
+    count = len(path_points)
+    for i in range(count - 1):
+        a = 4 * i
+        b = 4 * (i + 1)
+        # Bottom, top, left and right strips.
+        faces.extend(
+            (
+                (a, b, b + 1), (a, b + 1, a + 1),
+                (a + 2, a + 3, b + 3), (a + 2, b + 3, b + 2),
+                (a, a + 2, b + 2), (a, b + 2, b),
+                (a + 1, b + 1, b + 3), (a + 1, b + 3, a + 3),
+            )
+        )
+    last = 4 * (count - 1)
+    faces.extend(((0, 1, 3), (0, 3, 2), (last, last + 3, last + 1), (last, last + 2, last + 3)))
+    return trimesh.Trimesh(
+        vertices=np.asarray(vertices), faces=np.asarray(faces), process=True
+    )
+
+
 def engraved_text(text, height, depth, center_x, front_y, center_z):
     """Create bold vector text cutter facing toward negative Y."""
     font = FontProperties(fname=r"C:\Windows\Fonts\arialbd.ttf")
@@ -229,8 +270,8 @@ def main():
         # One continuous drill path crosses the wall, reinforcement and lip.
         # A smoothstep height curve avoids a kink where the slope becomes flat.
         a = np.radians(angle)
-        groove_radius = 4.0
-        radii = np.linspace(37.0, 58.0, 15)
+        groove_radius = slot_width / 2
+        radii = np.linspace(37.0, 58.0, 33)
         path_points = []
         for radial in radii:
             if radial <= 41.0:
@@ -259,12 +300,11 @@ def main():
                     point,
                 )
             )
-        # Remove everything above the rounded floor through the high part of the
-        # reinforcement. Otherwise its skin forms an arch over the circular
-        # cutter and turns the intended open groove into a short tunnel.
-        open_top = box((24.0, 8.2, 14.0), (48.0, 0.0, 13.5))
-        open_top.apply_transform(
-            trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
+        # One lofted cutter creates both sidewalls at the same nominal 7 mm
+        # width. It replaces the old rectangular opening whose width changes
+        # left visible steps at component boundaries.
+        open_top = open_channel_walls(
+            path_points, slot_width, cup_top_z + 2.0, a
         )
         runoff_channels.append(open_top)
         # Round the two exposed top corners of each wall segment (R3).
