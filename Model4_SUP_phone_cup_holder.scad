@@ -9,6 +9,8 @@ cup_inner_h = 100;
 cup_floor = 3;
 slot_width = 7;
 slot_corner_r = 3;
+rope_groove_width = 8;
+rope_groove_depth = 2;
 
 platform_d = 110;
 platform_h = 5;
@@ -96,6 +98,15 @@ module cup_clearance() {
     translate([0,0,cup_floor_z]) cylinder(d=cup_inner_d,h=cup_inner_h+1);
 }
 
+module rope_grooves() {
+    // Four smooth U-shaped seats: 8 mm wide and 2 mm deep at the deck edge.
+    groove_r = rope_groove_width/2;
+    groove_z = platform_h + groove_r - rope_groove_depth;
+    for (a=[45,135,225,315])
+        rotate([0,0,a]) translate([50,0,groove_z])
+            rotate([0,90,0]) cylinder(r=groove_r,h=18,center=true);
+}
+
 difference() {
     union() {
         platform();
@@ -112,5 +123,6 @@ difference() {
     }
     drain_holes();
     cup_clearance();
+    rope_grooves();
     engraving();
 }

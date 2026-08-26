@@ -105,6 +105,8 @@ def main():
     cup_floor = 3.0
     slot_width = 7.0
     slot_corner_r = 3.0
+    rope_groove_width = 8.0
+    rope_groove_depth = 2.0
     platform_h = 5.0
     platform_d = 110.0
 
@@ -217,6 +219,26 @@ def main():
         (0, 0, cup_floor_z + cup_inner_h / 2 + 0.4),
     )
     solid = trimesh.boolean.difference([solid, cup_clearance], engine="manifold")
+
+    # Four shallow U-shaped rope saddles aligned with the vertical cup slots.
+    # A horizontal Ø8 cylinder whose lowest point is 2 mm below the 5 mm deck
+    # cuts a smooth 8 mm wide, 2 mm deep channel at the platform perimeter.
+    rope_grooves = []
+    groove_length = 18.0
+    groove_center_radius = 50.0
+    groove_radius = rope_groove_width / 2
+    groove_axis_z = platform_h + groove_radius - rope_groove_depth
+    for angle in (45.0, 135.0, 225.0, 315.0):
+        groove = cylinder(groove_radius, groove_length, (0, 0, 0))
+        groove.apply_transform(
+            trimesh.transformations.rotation_matrix(np.pi / 2, (0, 1, 0))
+        )
+        groove.apply_translation((groove_center_radius, 0, groove_axis_z))
+        groove.apply_transform(
+            trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
+        )
+        rope_grooves.append(groove)
+    solid = trimesh.boolean.difference([solid, *rope_grooves], engine="manifold")
 
     # 10 mm tall, 1 mm deep engraving on the broad front face.
     text_cut = engraved_text(
