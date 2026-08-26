@@ -223,17 +223,27 @@ def main():
             trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
         )
         cutters.append(slot_bottom)
-        # Continue the rounded channel diagonally down the reinforcement and
-        # all the way through the outer edge of the 110 mm platform.
+        # Continue the open U-groove over the *surface* of the reinforcement:
+        # first follow its 45-degree slope, then cross the flat platform lip.
+        # Keeping the cutter centre above the local surface produces a 2.5 mm
+        # deep saddle instead of a hidden diagonal tunnel through the solid.
         a = np.radians(angle)
-        start = np.array([43.0 * np.cos(a), 43.0 * np.sin(a), slot_bottom_center_z])
-        end = np.array([58.0 * np.cos(a), 58.0 * np.sin(a), platform_h + 1.5])
+        groove_radius = 4.0
+        slope_start = np.array([41.0 * np.cos(a), 41.0 * np.sin(a), 15.5])
+        slope_end = np.array([50.0 * np.cos(a), 50.0 * np.sin(a), 6.5])
+        edge_end = np.array([58.0 * np.cos(a), 58.0 * np.sin(a), 6.5])
         slope_channel = trimesh.creation.cylinder(
-            radius=slot_width / 2,
+            radius=groove_radius,
             sections=96,
-            segment=np.vstack((start, end)),
+            segment=np.vstack((slope_start, slope_end)),
+        )
+        edge_channel = trimesh.creation.cylinder(
+            radius=groove_radius,
+            sections=96,
+            segment=np.vstack((slope_end, edge_end)),
         )
         cutters.append(slope_channel)
+        cutters.append(edge_channel)
         # Round the two exposed top corners of each wall segment (R3).
         x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2
         radial_depth = cup_wall + 4.0

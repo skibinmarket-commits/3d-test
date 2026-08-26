@@ -55,10 +55,14 @@ module slotted_cup() {
                 // Rounded lower end: the rope enters through the open top.
                 translate([(cup_outer_d+8)/2-1,0,slot_bottom_z])
                     rotate([0,90,0]) cylinder(r=slot_width/2,h=cup_outer_d+8,center=true);
-                // Rounded continuation down the reinforcement to the deck edge.
+                // Open U-groove follows the reinforcement surface, then the lip.
                 hull() {
-                    translate([43,0,slot_bottom_z]) sphere(r=slot_width/2);
-                    translate([58,0,platform_h+1.5]) sphere(r=slot_width/2);
+                    translate([41,0,15.5]) sphere(r=4);
+                    translate([50,0,6.5]) sphere(r=4);
+                }
+                hull() {
+                    translate([50,0,6.5]) sphere(r=4);
+                    translate([58,0,6.5]) sphere(r=4);
                 }
                 // R3 safety rounding at both exposed upper corners.
                 for (side=[-1,1])
