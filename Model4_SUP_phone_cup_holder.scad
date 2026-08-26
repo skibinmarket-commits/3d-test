@@ -55,6 +55,11 @@ module slotted_cup() {
                 // Rounded lower end: the rope enters through the open top.
                 translate([(cup_outer_d+8)/2-1,0,slot_bottom_z])
                     rotate([0,90,0]) cylinder(r=slot_width/2,h=cup_outer_d+8,center=true);
+                // Rounded continuation down the reinforcement to the deck edge.
+                hull() {
+                    translate([43,0,slot_bottom_z]) sphere(r=slot_width/2);
+                    translate([58,0,platform_h+1.5]) sphere(r=slot_width/2);
+                }
                 // R3 safety rounding at both exposed upper corners.
                 for (side=[-1,1])
                     translate([(cup_inner_d+cup_outer_d)/4,
@@ -86,13 +91,22 @@ module engraving() {
 }
 
 module drain_holes() {
-    for (a=[0,90,180,270]) {
+    collector_turn=[12,101,207,296];
+    for (i=[0:3]) {
+        a=[0,90,180,270][i];
         translate([15*cos(a),15*sin(a),-1]) cylinder(d=4,h=cup_floor_z+2);
-        translate([15*cos(a),15*sin(a),cup_floor_z-1.5]) cylinder(d1=4,d2=12,h=1.5);
+        translate([15*cos(a),15*sin(a),cup_floor_z-1.5])
+            linear_extrude(1.5,scale=3)
+                rotate(collector_turn[i])
+                    offset(r=1.6) circle(r=2,$fn=3);
     }
-    for (dx=[-22,22]) {
+    for (i=[0:1]) {
+        dx=[-22,22][i];
         translate([phone_center_x+dx,0,-1]) cylinder(d=4,h=platform_h+phone_floor+2);
-        translate([phone_center_x+dx,0,platform_h+phone_floor-1.5]) cylinder(d1=4,d2=12,h=1.5);
+        translate([phone_center_x+dx,0,platform_h+phone_floor-1.5])
+            linear_extrude(1.5,scale=3)
+                rotate([-18,23][i])
+                    offset(r=1.6) circle(r=2,$fn=3);
     }
 }
 

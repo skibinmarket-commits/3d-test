@@ -47,6 +47,44 @@ def frustum(radius_bottom, radius_top, height, center_z):
     return trimesh.Trimesh(vertices=vertices, faces=np.asarray(faces), process=True)
 
 
+def pick_funnel(depth, surface_z, center_xy, rotation_deg, variation=0.0):
+    """Asymmetric rounded-triangle collector lofted into a Ø4 outlet."""
+    count = 96
+    angles = np.linspace(0, 2 * np.pi, count, endpoint=False)
+    rotation = np.radians(rotation_deg)
+    # A rounded guitar-pick outline with deliberately mild asymmetry.
+    top_radius = 6.15 * (
+        1.0
+        + 0.16 * np.cos(3 * (angles - rotation))
+        + 0.045 * np.cos(2 * angles + variation)
+        + 0.025 * np.sin(5 * angles - 0.7 * variation)
+    )
+    cx, cy = center_xy
+    lower = np.column_stack(
+        (
+            cx + 2.0 * np.cos(angles),
+            cy + 2.0 * np.sin(angles),
+            np.full(count, surface_z - depth),
+        )
+    )
+    upper = np.column_stack(
+        (
+            cx + top_radius * np.cos(angles),
+            cy + top_radius * np.sin(angles),
+            np.full(count, surface_z),
+        )
+    )
+    vertices = np.vstack(
+        (lower, upper, [[cx, cy, surface_z - depth], [cx, cy, surface_z]])
+    )
+    faces = []
+    for i in range(count):
+        j = (i + 1) % count
+        faces.extend(((i, j, count + j), (i, count + j, count + i)))
+        faces.extend(((2 * count, j, i), (2 * count + 1, count + i, count + j)))
+    return trimesh.Trimesh(vertices=vertices, faces=np.asarray(faces), process=True)
+
+
 def engraved_text(text, height, depth, center_x, front_y, center_z):
     """Create bold vector text cutter facing toward negative Y."""
     font = FontProperties(fname=r"C:\Windows\Fonts\arialbd.ttf")
@@ -185,6 +223,17 @@ def main():
             trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
         )
         cutters.append(slot_bottom)
+        # Continue the rounded channel diagonally down the reinforcement and
+        # all the way through the outer edge of the 110 mm platform.
+        a = np.radians(angle)
+        start = np.array([43.0 * np.cos(a), 43.0 * np.sin(a), slot_bottom_center_z])
+        end = np.array([58.0 * np.cos(a), 58.0 * np.sin(a), platform_h + 1.5])
+        slope_channel = trimesh.creation.cylinder(
+            radius=slot_width / 2,
+            sections=96,
+            segment=np.vstack((start, end)),
+        )
+        cutters.append(slope_channel)
         # Round the two exposed top corners of each wall segment (R3).
         x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2
         radial_depth = cup_wall + 4.0
@@ -246,24 +295,32 @@ def main():
     )
     solid = trimesh.boolean.difference([solid, text_cut], engine="manifold")
 
-    # Drainage: each Ø4 through-hole has a shallow Ø12 x 1.5 mm collection
-    # funnel so water is guided into the outlet instead of remaining on the floor.
+    # Drainage: each Ø4 through-hole has its own asymmetric rounded triangular
+    # collector, similar to a guitar pick, lofted down into the outlet.
     drains = []
-    for angle in (0.0, 90.0, 180.0, 270.0):
+    collector_rotations = (12.0, 101.0, 207.0, 296.0)
+    for index, angle in enumerate((0.0, 90.0, 180.0, 270.0)):
         a = np.radians(angle)
-        drains.append(cylinder(2.0, cup_floor_z + 2.0, (15 * np.cos(a), 15 * np.sin(a), cup_floor_z / 2)))
+        drain_xy = (15 * np.cos(a), 15 * np.sin(a))
+        drains.append(cylinder(2.0, cup_floor_z + 2.0, (*drain_xy, cup_floor_z / 2)))
         drains.append(
-            moved(
-                frustum(2.0, 6.0, 1.5, 0.0),
-                (15 * np.cos(a), 15 * np.sin(a), cup_floor_z - 0.75),
+            pick_funnel(
+                1.5,
+                cup_floor_z,
+                drain_xy,
+                collector_rotations[index],
+                variation=index * 0.8,
             )
         )
-    for dx in (-22.0, 22.0):
+    for index, dx in enumerate((-22.0, 22.0)):
         drains.append(cylinder(2.0, platform_h + phone_floor + 2.0, (phone_center_x + dx, 0, (platform_h + phone_floor) / 2)))
         drains.append(
-            moved(
-                frustum(2.0, 6.0, 1.5, 0.0),
-                (phone_center_x + dx, 0, platform_h + phone_floor - 0.75),
+            pick_funnel(
+                1.5,
+                platform_h + phone_floor,
+                (phone_center_x + dx, 0),
+                (-18.0, 23.0)[index],
+                variation=3.7 + index,
             )
         )
     solid = trimesh.boolean.difference([solid, *drains], engine="manifold")
