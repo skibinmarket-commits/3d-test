@@ -55,15 +55,6 @@ module slotted_cup() {
                 // Rounded lower end: the rope enters through the open top.
                 translate([(cup_outer_d+8)/2-1,0,slot_bottom_z])
                     rotate([0,90,0]) cylinder(r=slot_width/2,h=cup_outer_d+8,center=true);
-                // Open U-groove follows the reinforcement surface, then the lip.
-                hull() {
-                    translate([41,0,15.5]) sphere(r=4);
-                    translate([50,0,6.5]) sphere(r=4);
-                }
-                hull() {
-                    translate([50,0,6.5]) sphere(r=4);
-                    translate([58,0,6.5]) sphere(r=4);
-                }
                 // R3 safety rounding at both exposed upper corners.
                 for (side=[-1,1])
                     translate([(cup_inner_d+cup_outer_d)/4,
@@ -119,6 +110,21 @@ module cup_clearance() {
     translate([0,0,cup_floor_z]) cylinder(d=cup_inner_d,h=cup_inner_h+1);
 }
 
+module rope_runoff_channels() {
+    // Applied to the completed assembly, so the channel pierces the outer wall,
+    // reinforcement and platform instead of being filled by their later union.
+    for (a=[45,135,225,315]) rotate([0,0,a]) {
+        hull() {
+            translate([41,0,15.5]) sphere(r=4);
+            translate([50,0,6.5]) sphere(r=4);
+        }
+        hull() {
+            translate([50,0,6.5]) sphere(r=4);
+            translate([58,0,6.5]) sphere(r=4);
+        }
+    }
+}
+
 difference() {
     union() {
         platform();
@@ -135,5 +141,6 @@ difference() {
     }
     drain_holes();
     cup_clearance();
+    rope_runoff_channels();
     engraving();
 }

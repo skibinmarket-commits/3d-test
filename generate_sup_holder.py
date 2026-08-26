@@ -197,6 +197,7 @@ def main():
 
     # Four 7 mm radial slots, equally spaced and rotated away from phone joint.
     cutters = []
+    runoff_channels = []
     cutter_length = cup_outer_d + 8.0
     slot_bottom_center_z = cup_floor_z + slot_width / 2 - 2.0
     cutter_h = cup_top_z - slot_bottom_center_z + 0.4
@@ -242,8 +243,9 @@ def main():
             sections=96,
             segment=np.vstack((slope_end, edge_end)),
         )
-        cutters.append(slope_channel)
-        cutters.append(edge_channel)
+        # These must be subtracted only after the cup, reinforcement and deck
+        # have been united; otherwise the later union fills the runoff again.
+        runoff_channels.extend((slope_channel, edge_channel))
         # Round the two exposed top corners of each wall segment (R3).
         x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2
         radial_depth = cup_wall + 4.0
@@ -293,6 +295,10 @@ def main():
         (0, 0, cup_floor_z + cup_inner_h / 2 + 0.4),
     )
     solid = trimesh.boolean.difference([solid, cup_clearance], engine="manifold")
+
+    # Cut the rope runoffs through the finished outer wall, reinforcement and
+    # platform so every internal U-slot has a genuinely open route to the edge.
+    solid = trimesh.boolean.difference([solid, *runoff_channels], engine="manifold")
 
     # 10 mm tall, 1 mm deep engraving on the broad front face.
     text_cut = engraved_text(
