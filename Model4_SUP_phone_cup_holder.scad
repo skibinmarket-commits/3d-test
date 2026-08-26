@@ -114,11 +114,25 @@ module rope_runoff_channels() {
     // Applied to the completed assembly, so the channel pierces the outer wall,
     // reinforcement and platform instead of being filled by their later union.
     for (a=[45,135,225,315]) rotate([0,0,a]) {
+        slot_bottom_z = cup_floor_z+slot_width/2-2;
+        // Re-drill the complete vertical slot and U-bottom after assembly.
+        translate([(cup_outer_d+8)/2-1,0,(slot_bottom_z+cup_top_z+1)/2])
+            cube([cup_outer_d+8,slot_width,cup_top_z+1-slot_bottom_z],center=true);
+        translate([(cup_outer_d+8)/2-1,0,slot_bottom_z])
+            rotate([0,90,0]) cylinder(r=slot_width/2,h=cup_outer_d+8,center=true);
         // Remove every possible roof above the rounded floor: this is a groove,
         // never a tunnel.
         translate([48,0,13.5]) cube([24,8.2,14],center=true);
         hull() {
-            translate([41,0,cup_floor_z+slot_width/2-2]) sphere(r=4);
+            translate([37,0,slot_bottom_z]) sphere(r=4);
+            translate([41,0,slot_bottom_z]) sphere(r=4);
+        }
+        hull() {
+            translate([41,0,slot_bottom_z]) sphere(r=4);
+            translate([45.5,0,8]) sphere(r=4);
+        }
+        hull() {
+            translate([45.5,0,8]) sphere(r=4);
             translate([50,0,6.5]) sphere(r=4);
         }
         hull() {

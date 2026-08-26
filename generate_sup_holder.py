@@ -212,6 +212,7 @@ def main():
         )
         cutter.apply_transform(trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1)))
         cutters.append(cutter)
+        runoff_channels.append(cutter.copy())
         # Semicircular lower end makes the slot an open-top U-shaped rope seat.
         slot_bottom = cylinder(slot_width / 2, cutter_length, (0, 0, 0))
         slot_bottom.apply_transform(
@@ -224,29 +225,40 @@ def main():
             trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
         )
         cutters.append(slot_bottom)
-        # Continue the open U-groove over the *surface* of the reinforcement:
-        # first follow its 45-degree slope, then cross the flat platform lip.
-        # Keeping the cutter centre above the local surface produces a 2.5 mm
-        # deep saddle instead of a hidden diagonal tunnel through the solid.
+        runoff_channels.append(slot_bottom.copy())
+        # One continuous drill path crosses the wall, reinforcement and lip.
+        # A smoothstep height curve avoids a kink where the slope becomes flat.
         a = np.radians(angle)
         groove_radius = 4.0
-        # Start at the same elevation as the internal U-seat so the floor never
-        # climbs over a lip when crossing the cup perimeter.
-        slope_start = np.array(
-            [41.0 * np.cos(a), 41.0 * np.sin(a), slot_bottom_center_z]
-        )
-        slope_end = np.array([50.0 * np.cos(a), 50.0 * np.sin(a), 6.5])
-        edge_end = np.array([58.0 * np.cos(a), 58.0 * np.sin(a), 6.5])
-        slope_channel = trimesh.creation.cylinder(
-            radius=groove_radius,
-            sections=96,
-            segment=np.vstack((slope_start, slope_end)),
-        )
-        edge_channel = trimesh.creation.cylinder(
-            radius=groove_radius,
-            sections=96,
-            segment=np.vstack((slope_end, edge_end)),
-        )
+        radii = np.linspace(37.0, 58.0, 15)
+        path_points = []
+        for radial in radii:
+            if radial <= 41.0:
+                z_value = slot_bottom_center_z
+            elif radial >= 50.0:
+                z_value = 6.5
+            else:
+                t = (radial - 41.0) / 9.0
+                smooth = t * t * (3.0 - 2.0 * t)
+                z_value = slot_bottom_center_z + (6.5 - slot_bottom_center_z) * smooth
+            path_points.append(
+                np.array([radial * np.cos(a), radial * np.sin(a), z_value])
+            )
+        for start, end in zip(path_points[:-1], path_points[1:]):
+            runoff_channels.append(
+                trimesh.creation.cylinder(
+                    radius=groove_radius,
+                    sections=96,
+                    segment=np.vstack((start, end)),
+                )
+            )
+        for point in path_points:
+            runoff_channels.append(
+                moved(
+                    trimesh.creation.icosphere(subdivisions=3, radius=groove_radius),
+                    point,
+                )
+            )
         # Remove everything above the rounded floor through the high part of the
         # reinforcement. Otherwise its skin forms an arch over the circular
         # cutter and turns the intended open groove into a short tunnel.
@@ -254,32 +266,7 @@ def main():
         open_top.apply_transform(
             trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
         )
-        # These must be subtracted only after the cup, reinforcement and deck
-        # have been united; otherwise the later union fills the runoff again.
-        # Overlapping round junctions eliminate the flat cylinder end-caps that
-        # otherwise form small transverse ridges in the channel floor.
-        joint_start = moved(
-            trimesh.creation.icosphere(subdivisions=3, radius=groove_radius),
-            slope_start,
-        )
-        joint_slope = moved(
-            trimesh.creation.icosphere(subdivisions=3, radius=groove_radius),
-            slope_end,
-        )
-        joint_exit = moved(
-            trimesh.creation.icosphere(subdivisions=3, radius=groove_radius),
-            edge_end,
-        )
-        runoff_channels.extend(
-            (
-                slope_channel,
-                edge_channel,
-                joint_start,
-                joint_slope,
-                joint_exit,
-                open_top,
-            )
-        )
+        runoff_channels.append(open_top)
         # Round the two exposed top corners of each wall segment (R3).
         x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2
         radial_depth = cup_wall + 4.0
@@ -332,7 +319,8 @@ def main():
 
     # Cut the rope runoffs through the finished outer wall, reinforcement and
     # platform so every internal U-slot has a genuinely open route to the edge.
-    solid = trimesh.boolean.difference([solid, *runoff_channels], engine="manifold")
+    channel_tool = trimesh.boolean.union(runoff_channels, engine="manifold")
+    solid = trimesh.boolean.difference([solid, channel_tool], engine="manifold")
 
     # 10 mm tall, 1 mm deep engraving on the broad front face.
     text_cut = engraved_text(
