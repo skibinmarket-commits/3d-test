@@ -91,11 +91,19 @@ module drain_holes() {
     }
 }
 
+module cup_clearance() {
+    // Final clean Ø76 bore removes all reinforcement intrusions above the floor.
+    translate([0,0,cup_floor_z]) cylinder(d=cup_inner_d,h=cup_inner_h+1);
+}
+
 difference() {
     union() {
         platform();
-        // Circular 9 x 9 mm reinforcement with a 45-degree slope.
-        translate([0,0,platform_h]) cylinder(r1=50,r2=cup_outer_d/2,h=9);
+        // External annular reinforcement; the hollow centre keeps drains open.
+        difference() {
+            translate([0,0,platform_h]) cylinder(r1=50,r2=41.5,h=8.5);
+            translate([0,0,platform_h-1]) cylinder(r=40.5,h=10.5);
+        }
         slotted_cup();
         phone_pocket();
         // Rounded reinforcement at both sides of the joint.
@@ -103,5 +111,6 @@ difference() {
             translate([phone_x0+1,y,5]) cylinder(r=5,h=70);
     }
     drain_holes();
+    cup_clearance();
     engraving();
 }

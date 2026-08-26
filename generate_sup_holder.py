@@ -135,8 +135,13 @@ def main():
     )
     solid = trimesh.boolean.union([platform_circle, platform_phone], engine="manifold")
 
-    # 9 x 9 mm circular 45-degree reinforcement at the cup/platform joint.
-    base_reinforcement = frustum(50.0, cup_outer_d / 2, 9.0, platform_h + 4.5)
+    # Circular 45-degree reinforcement outside the cup only.  It must be an
+    # annulus: a solid cone here would cover the cup drain holes from above.
+    base_reinforcement_outer = frustum(50.0, 41.5, 8.5, platform_h + 4.25)
+    base_reinforcement_inner = cylinder(40.5, 10.5, (0, 0, platform_h + 4.25))
+    base_reinforcement = trimesh.boolean.difference(
+        [base_reinforcement_outer, base_reinforcement_inner], engine="manifold"
+    )
     solid = trimesh.boolean.union([solid, base_reinforcement], engine="manifold")
 
     # Cup shell and its separate 3 mm floor above the platform.
@@ -202,6 +207,16 @@ def main():
         gussets.append(cylinder(5.0, 70.0, (phone_x0 + 1.0, y, 40.0)))
 
     solid = trimesh.boolean.union([solid, cup, phone, *gussets], engine="manifold")
+
+    # Re-cut the full Ø76 mm useful bore after every reinforcement and phone
+    # part has been joined. This removes the two vertical intrusions which could
+    # otherwise catch a bottle while preserving the 3 mm cup floor below Z=8.
+    cup_clearance = cylinder(
+        cup_inner_d / 2,
+        cup_inner_h + 0.8,
+        (0, 0, cup_floor_z + cup_inner_h / 2 + 0.4),
+    )
+    solid = trimesh.boolean.difference([solid, cup_clearance], engine="manifold")
 
     # 10 mm tall, 1 mm deep engraving on the broad front face.
     text_cut = engraved_text(
