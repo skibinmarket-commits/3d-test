@@ -105,8 +105,6 @@ def main():
     cup_floor = 3.0
     slot_width = 7.0
     slot_corner_r = 3.0
-    rope_groove_width = 8.0
-    rope_groove_depth = 2.0
     platform_h = 5.0
     platform_d = 110.0
 
@@ -162,14 +160,31 @@ def main():
     # Four 7 mm radial slots, equally spaced and rotated away from phone joint.
     cutters = []
     cutter_length = cup_outer_d + 8.0
-    cutter_h = cup_inner_h + 0.4
+    slot_bottom_center_z = cup_floor_z + slot_width / 2 - 2.0
+    cutter_h = cup_top_z - slot_bottom_center_z + 0.4
     for angle in (45.0, 135.0, 225.0, 315.0):
         cutter = box(
             (cutter_length, slot_width, cutter_h),
-            (cutter_length / 2 - 1.0, 0, cup_floor_z + cutter_h / 2),
+            (
+                cutter_length / 2 - 1.0,
+                0,
+                slot_bottom_center_z + cutter_h / 2,
+            ),
         )
         cutter.apply_transform(trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1)))
         cutters.append(cutter)
+        # Semicircular lower end makes the slot an open-top U-shaped rope seat.
+        slot_bottom = cylinder(slot_width / 2, cutter_length, (0, 0, 0))
+        slot_bottom.apply_transform(
+            trimesh.transformations.rotation_matrix(np.pi / 2, (0, 1, 0))
+        )
+        slot_bottom.apply_translation(
+            (cutter_length / 2 - 1.0, 0, slot_bottom_center_z)
+        )
+        slot_bottom.apply_transform(
+            trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
+        )
+        cutters.append(slot_bottom)
         # Round the two exposed top corners of each wall segment (R3).
         x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2
         radial_depth = cup_wall + 4.0
@@ -220,26 +235,6 @@ def main():
     )
     solid = trimesh.boolean.difference([solid, cup_clearance], engine="manifold")
 
-    # Four shallow U-shaped rope saddles aligned with the vertical cup slots.
-    # A horizontal Ø8 cylinder whose lowest point is 2 mm below the 5 mm deck
-    # cuts a smooth 8 mm wide, 2 mm deep channel at the platform perimeter.
-    rope_grooves = []
-    groove_length = 18.0
-    groove_center_radius = 50.0
-    groove_radius = rope_groove_width / 2
-    groove_axis_z = platform_h + groove_radius - rope_groove_depth
-    for angle in (45.0, 135.0, 225.0, 315.0):
-        groove = cylinder(groove_radius, groove_length, (0, 0, 0))
-        groove.apply_transform(
-            trimesh.transformations.rotation_matrix(np.pi / 2, (0, 1, 0))
-        )
-        groove.apply_translation((groove_center_radius, 0, groove_axis_z))
-        groove.apply_transform(
-            trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
-        )
-        rope_grooves.append(groove)
-    solid = trimesh.boolean.difference([solid, *rope_grooves], engine="manifold")
-
     # 10 mm tall, 1 mm deep engraving on the broad front face.
     text_cut = engraved_text(
         "Red Rocket",
@@ -251,19 +246,26 @@ def main():
     )
     solid = trimesh.boolean.difference([solid, text_cut], engine="manifold")
 
-    # Drainage: four cup holes and two phone-pocket holes. Conical mouths soften edges.
+    # Drainage: each Ø4 through-hole has a shallow Ø12 x 1.5 mm collection
+    # funnel so water is guided into the outlet instead of remaining on the floor.
     drains = []
     for angle in (0.0, 90.0, 180.0, 270.0):
         a = np.radians(angle)
         drains.append(cylinder(2.0, cup_floor_z + 2.0, (15 * np.cos(a), 15 * np.sin(a), cup_floor_z / 2)))
-        chamfer = trimesh.creation.cone(radius=3.0, height=1.2, sections=64)
-        chamfer.apply_transform(trimesh.transformations.rotation_matrix(np.pi, (1, 0, 0)))
-        drains.append(moved(chamfer, (15 * np.cos(a), 15 * np.sin(a), cup_floor_z)))
+        drains.append(
+            moved(
+                frustum(2.0, 6.0, 1.5, 0.0),
+                (15 * np.cos(a), 15 * np.sin(a), cup_floor_z - 0.75),
+            )
+        )
     for dx in (-22.0, 22.0):
         drains.append(cylinder(2.0, platform_h + phone_floor + 2.0, (phone_center_x + dx, 0, (platform_h + phone_floor) / 2)))
-        chamfer = trimesh.creation.cone(radius=3.0, height=1.2, sections=64)
-        chamfer.apply_transform(trimesh.transformations.rotation_matrix(np.pi, (1, 0, 0)))
-        drains.append(moved(chamfer, (phone_center_x + dx, 0, platform_h + phone_floor)))
+        drains.append(
+            moved(
+                frustum(2.0, 6.0, 1.5, 0.0),
+                (phone_center_x + dx, 0, platform_h + phone_floor - 0.75),
+            )
+        )
     solid = trimesh.boolean.difference([solid, *drains], engine="manifold")
 
     print(f"raw_watertight={solid.is_watertight} raw_degenerate={int(np.sum(solid.area_faces < 1e-10))}")

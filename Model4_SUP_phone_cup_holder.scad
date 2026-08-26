@@ -9,8 +9,6 @@ cup_inner_h = 100;
 cup_floor = 3;
 slot_width = 7;
 slot_corner_r = 3;
-rope_groove_width = 8;
-rope_groove_depth = 2;
 
 platform_d = 110;
 platform_h = 5;
@@ -50,8 +48,13 @@ module slotted_cup() {
         }
         for (a=[45,135,225,315])
             rotate([0,0,a]) {
-                translate([(cup_outer_d+8)/2-1, 0, cup_floor_z+cup_inner_h/2])
-                    cube([cup_outer_d+8, slot_width, cup_inner_h+1], center=true);
+                slot_bottom_z = cup_floor_z + slot_width/2 - 2;
+                slot_h = cup_top_z-slot_bottom_z+1;
+                translate([(cup_outer_d+8)/2-1, 0, slot_bottom_z+slot_h/2])
+                    cube([cup_outer_d+8, slot_width, slot_h], center=true);
+                // Rounded lower end: the rope enters through the open top.
+                translate([(cup_outer_d+8)/2-1,0,slot_bottom_z])
+                    rotate([0,90,0]) cylinder(r=slot_width/2,h=cup_outer_d+8,center=true);
                 // R3 safety rounding at both exposed upper corners.
                 for (side=[-1,1])
                     translate([(cup_inner_d+cup_outer_d)/4,
@@ -85,26 +88,17 @@ module engraving() {
 module drain_holes() {
     for (a=[0,90,180,270]) {
         translate([15*cos(a),15*sin(a),-1]) cylinder(d=4,h=cup_floor_z+2);
-        translate([15*cos(a),15*sin(a),cup_floor_z-1.2]) cylinder(d1=4,d2=6,h=1.3);
+        translate([15*cos(a),15*sin(a),cup_floor_z-1.5]) cylinder(d1=4,d2=12,h=1.5);
     }
     for (dx=[-22,22]) {
         translate([phone_center_x+dx,0,-1]) cylinder(d=4,h=platform_h+phone_floor+2);
-        translate([phone_center_x+dx,0,platform_h+phone_floor-1.2]) cylinder(d1=4,d2=6,h=1.3);
+        translate([phone_center_x+dx,0,platform_h+phone_floor-1.5]) cylinder(d1=4,d2=12,h=1.5);
     }
 }
 
 module cup_clearance() {
     // Final clean Ø76 bore removes all reinforcement intrusions above the floor.
     translate([0,0,cup_floor_z]) cylinder(d=cup_inner_d,h=cup_inner_h+1);
-}
-
-module rope_grooves() {
-    // Four smooth U-shaped seats: 8 mm wide and 2 mm deep at the deck edge.
-    groove_r = rope_groove_width/2;
-    groove_z = platform_h + groove_r - rope_groove_depth;
-    for (a=[45,135,225,315])
-        rotate([0,0,a]) translate([50,0,groove_z])
-            rotate([0,90,0]) cylinder(r=groove_r,h=18,center=true);
 }
 
 difference() {
@@ -123,6 +117,5 @@ difference() {
     }
     drain_holes();
     cup_clearance();
-    rope_grooves();
     engraving();
 }
