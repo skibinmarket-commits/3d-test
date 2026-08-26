@@ -230,7 +230,11 @@ def main():
         # deep saddle instead of a hidden diagonal tunnel through the solid.
         a = np.radians(angle)
         groove_radius = 4.0
-        slope_start = np.array([41.0 * np.cos(a), 41.0 * np.sin(a), 15.5])
+        # Start at the same elevation as the internal U-seat so the floor never
+        # climbs over a lip when crossing the cup perimeter.
+        slope_start = np.array(
+            [41.0 * np.cos(a), 41.0 * np.sin(a), slot_bottom_center_z]
+        )
         slope_end = np.array([50.0 * np.cos(a), 50.0 * np.sin(a), 6.5])
         edge_end = np.array([58.0 * np.cos(a), 58.0 * np.sin(a), 6.5])
         slope_channel = trimesh.creation.cylinder(
@@ -245,7 +249,23 @@ def main():
         )
         # These must be subtracted only after the cup, reinforcement and deck
         # have been united; otherwise the later union fills the runoff again.
-        runoff_channels.extend((slope_channel, edge_channel))
+        # Overlapping round junctions eliminate the flat cylinder end-caps that
+        # otherwise form small transverse ridges in the channel floor.
+        joint_start = moved(
+            trimesh.creation.icosphere(subdivisions=3, radius=groove_radius),
+            slope_start,
+        )
+        joint_slope = moved(
+            trimesh.creation.icosphere(subdivisions=3, radius=groove_radius),
+            slope_end,
+        )
+        joint_exit = moved(
+            trimesh.creation.icosphere(subdivisions=3, radius=groove_radius),
+            edge_end,
+        )
+        runoff_channels.extend(
+            (slope_channel, edge_channel, joint_start, joint_slope, joint_exit)
+        )
         # Round the two exposed top corners of each wall segment (R3).
         x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2
         radial_depth = cup_wall + 4.0

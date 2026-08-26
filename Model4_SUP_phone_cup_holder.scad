@@ -115,7 +115,7 @@ module rope_runoff_channels() {
     // reinforcement and platform instead of being filled by their later union.
     for (a=[45,135,225,315]) rotate([0,0,a]) {
         hull() {
-            translate([41,0,15.5]) sphere(r=4);
+            translate([41,0,cup_floor_z+slot_width/2-2]) sphere(r=4);
             translate([50,0,6.5]) sphere(r=4);
         }
         hull() {
