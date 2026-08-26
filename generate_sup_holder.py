@@ -247,6 +247,13 @@ def main():
             sections=96,
             segment=np.vstack((slope_end, edge_end)),
         )
+        # Remove everything above the rounded floor through the high part of the
+        # reinforcement. Otherwise its skin forms an arch over the circular
+        # cutter and turns the intended open groove into a short tunnel.
+        open_top = box((24.0, 8.2, 14.0), (48.0, 0.0, 13.5))
+        open_top.apply_transform(
+            trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1))
+        )
         # These must be subtracted only after the cup, reinforcement and deck
         # have been united; otherwise the later union fills the runoff again.
         # Overlapping round junctions eliminate the flat cylinder end-caps that
@@ -264,7 +271,14 @@ def main():
             edge_end,
         )
         runoff_channels.extend(
-            (slope_channel, edge_channel, joint_start, joint_slope, joint_exit)
+            (
+                slope_channel,
+                edge_channel,
+                joint_start,
+                joint_slope,
+                joint_exit,
+                open_top,
+            )
         )
         # Round the two exposed top corners of each wall segment (R3).
         x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2

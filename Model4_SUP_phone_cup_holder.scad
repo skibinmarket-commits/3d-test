@@ -114,6 +114,9 @@ module rope_runoff_channels() {
     // Applied to the completed assembly, so the channel pierces the outer wall,
     // reinforcement and platform instead of being filled by their later union.
     for (a=[45,135,225,315]) rotate([0,0,a]) {
+        // Remove every possible roof above the rounded floor: this is a groove,
+        // never a tunnel.
+        translate([48,0,13.5]) cube([24,8.2,14],center=true);
         hull() {
             translate([41,0,cup_floor_z+slot_width/2-2]) sphere(r=4);
             translate([50,0,6.5]) sphere(r=4);
