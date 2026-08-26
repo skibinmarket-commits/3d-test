@@ -13,6 +13,9 @@ the browser.
 - Phone pocket: 81 x 16 x 80 mm internal space.
 - Phone walls: 3 mm; phone floor: 5 mm.
 - Six 4 mm drain holes with softened upper edges.
+- R3 rounding on the exposed upper slot corners.
+- Circular 9 x 9 mm reinforcement with a 45-degree slope at the cup base.
+- 10 mm bold `Red Rocket` engraving, approximately 1 mm deep.
 - Rounded platform corners and reinforced cup-to-phone joints.
 
 The editable OpenSCAD source is `Model4_SUP_phone_cup_holder.scad`. The checked

@@ -8,6 +8,10 @@ from pathlib import Path
 
 import numpy as np
 import trimesh
+import manifold3d
+from matplotlib.font_manager import FontProperties
+from matplotlib.textpath import TextPath
+from shapely.geometry import GeometryCollection, Polygon
 
 
 SEGMENTS = 128
@@ -27,6 +31,46 @@ def cylinder(radius, height, center):
         trimesh.creation.cylinder(radius=radius, height=height, sections=SEGMENTS),
         center,
     )
+
+
+def frustum(radius_bottom, radius_top, height, center_z):
+    """Closed vertical conical frustum."""
+    angles = np.linspace(0, 2 * np.pi, SEGMENTS, endpoint=False)
+    lower = np.column_stack((radius_bottom * np.cos(angles), radius_bottom * np.sin(angles), np.full(SEGMENTS, center_z - height / 2)))
+    upper = np.column_stack((radius_top * np.cos(angles), radius_top * np.sin(angles), np.full(SEGMENTS, center_z + height / 2)))
+    vertices = np.vstack((lower, upper, [[0, 0, center_z - height / 2], [0, 0, center_z + height / 2]]))
+    faces = []
+    for i in range(SEGMENTS):
+        j = (i + 1) % SEGMENTS
+        faces.extend(((i, j, SEGMENTS + j), (i, SEGMENTS + j, SEGMENTS + i)))
+        faces.extend(((2 * SEGMENTS, j, i), (2 * SEGMENTS + 1, SEGMENTS + i, SEGMENTS + j)))
+    return trimesh.Trimesh(vertices=vertices, faces=np.asarray(faces), process=True)
+
+
+def engraved_text(text, height, depth, center_x, front_y, center_z):
+    """Create bold vector text cutter facing toward negative Y."""
+    font = FontProperties(fname=r"C:\Windows\Fonts\arialbd.ttf")
+    path = TextPath((0, 0), text, size=height, prop=font)
+    polygons = [Polygon(p) for p in path.to_polygons() if len(p) >= 3]
+    shape = GeometryCollection()
+    for polygon in polygons:
+        shape = shape.symmetric_difference(polygon)
+    min_x, min_y, max_x, max_y = shape.bounds
+    scale = height / (max_y - min_y)
+    from shapely import affinity
+
+    shape = affinity.scale(shape, xfact=scale, yfact=scale, origin=(0, 0))
+    min_x, min_y, max_x, max_y = shape.bounds
+    shape = affinity.translate(shape, xoff=-(min_x + max_x) / 2, yoff=-(min_y + max_y) / 2)
+    meshes = []
+    parts = list(shape.geoms) if hasattr(shape, "geoms") else [shape]
+    for part in parts:
+        if not part.is_empty:
+            meshes.append(trimesh.creation.extrude_polygon(part, height=depth, engine="earcut"))
+    result = trimesh.util.concatenate(meshes)
+    result.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, (1, 0, 0)))
+    result.apply_translation((center_x, front_y + 0.1, center_z))
+    return result
 
 
 def rounded_box(width, depth, height, radius, center):
@@ -60,6 +104,7 @@ def main():
     cup_inner_h = 100.0
     cup_floor = 3.0
     slot_width = 7.0
+    slot_corner_r = 3.0
     platform_h = 5.0
     platform_d = 110.0
 
@@ -90,6 +135,10 @@ def main():
     )
     solid = trimesh.boolean.union([platform_circle, platform_phone], engine="manifold")
 
+    # 9 x 9 mm circular 45-degree reinforcement at the cup/platform joint.
+    base_reinforcement = frustum(50.0, cup_outer_d / 2, 9.0, platform_h + 4.5)
+    solid = trimesh.boolean.union([solid, base_reinforcement], engine="manifold")
+
     # Cup shell and its separate 3 mm floor above the platform.
     cup_outer = cylinder(
         cup_outer_d / 2,
@@ -114,6 +163,20 @@ def main():
         )
         cutter.apply_transform(trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1)))
         cutters.append(cutter)
+        # Round the two exposed top corners of each wall segment (R3).
+        x_mid = (cup_inner_d / 2 + cup_outer_d / 2) / 2
+        radial_depth = cup_wall + 4.0
+        for side in (-1.0, 1.0):
+            corner_box = box(
+                (radial_depth, slot_corner_r, slot_corner_r),
+                (x_mid, side * (slot_width / 2 + slot_corner_r / 2), cup_top_z - slot_corner_r / 2),
+            )
+            round_keep = cylinder(slot_corner_r, radial_depth + 2.0, (0, 0, 0))
+            round_keep.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, (0, 1, 0)))
+            round_keep.apply_translation((x_mid, side * (slot_width / 2 + slot_corner_r), cup_top_z - slot_corner_r))
+            corner_cut = trimesh.boolean.difference([corner_box, round_keep], engine="manifold")
+            corner_cut.apply_transform(trimesh.transformations.rotation_matrix(np.radians(angle), (0, 0, 1)))
+            cutters.append(corner_cut)
     cup = trimesh.boolean.difference([cup, *cutters], engine="manifold")
 
     # Rounded phone pocket, open at the top.
@@ -140,6 +203,17 @@ def main():
 
     solid = trimesh.boolean.union([solid, cup, phone, *gussets], engine="manifold")
 
+    # 10 mm tall, 1 mm deep engraving on the broad front face.
+    text_cut = engraved_text(
+        "Red Rocket",
+        10.0,
+        1.2,
+        phone_center_x,
+        -phone_outer_d / 2,
+        50.0,
+    )
+    solid = trimesh.boolean.difference([solid, text_cut], engine="manifold")
+
     # Drainage: four cup holes and two phone-pocket holes. Conical mouths soften edges.
     drains = []
     for angle in (0.0, 90.0, 180.0, 270.0):
@@ -155,11 +229,19 @@ def main():
         drains.append(moved(chamfer, (phone_center_x + dx, 0, platform_h + phone_floor)))
     solid = trimesh.boolean.difference([solid, *drains], engine="manifold")
 
-    # Manifold may retain zero-area triangles along coincident primitive seams.
-    # Removing them before export preserves the same shape and closes STL edges.
-    solid.update_faces(solid.nondegenerate_faces())
-    solid.merge_vertices()
-    solid.remove_unreferenced_vertices()
+    print(f"raw_watertight={solid.is_watertight} raw_degenerate={int(np.sum(solid.area_faces < 1e-10))}")
+    # Rebuild once through Manifold and simplify only zero-length seams created
+    # by coplanar booleans. This keeps the surface closed while removing them.
+    source_mesh = manifold3d.Mesh(
+        np.asarray(solid.vertices, dtype=np.float32),
+        np.asarray(solid.faces, dtype=np.uint32),
+    )
+    rebuilt = manifold3d.Manifold(source_mesh).simplify(1e-5).to_mesh()
+    solid = trimesh.Trimesh(
+        vertices=np.asarray(rebuilt.vert_properties)[:, :3],
+        faces=np.asarray(rebuilt.tri_verts),
+        process=True,
+    )
     output = Path(__file__).with_name("Model4_SUP_phone_cup_holder.stl")
     solid.export(output)
     print(f"Wrote {output.name}")

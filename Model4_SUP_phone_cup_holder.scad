@@ -8,6 +8,7 @@ cup_outer_d = 82;
 cup_inner_h = 100;
 cup_floor = 3;
 slot_width = 7;
+slot_corner_r = 3;
 
 platform_d = 110;
 platform_h = 5;
@@ -46,8 +47,20 @@ module slotted_cup() {
             translate([0, 0, cup_floor_z]) cylinder(d=cup_inner_d, h=cup_inner_h+1);
         }
         for (a=[45,135,225,315])
-            rotate([0,0,a]) translate([(cup_outer_d+8)/2-1, 0, cup_floor_z+cup_inner_h/2])
-                cube([cup_outer_d+8, slot_width, cup_inner_h+1], center=true);
+            rotate([0,0,a]) {
+                translate([(cup_outer_d+8)/2-1, 0, cup_floor_z+cup_inner_h/2])
+                    cube([cup_outer_d+8, slot_width, cup_inner_h+1], center=true);
+                // R3 safety rounding at both exposed upper corners.
+                for (side=[-1,1])
+                    translate([(cup_inner_d+cup_outer_d)/4,
+                               side*(slot_width/2+slot_corner_r/2),
+                               cup_top_z-slot_corner_r/2])
+                        difference() {
+                            cube([cup_wall+4,slot_corner_r,slot_corner_r],center=true);
+                            translate([0,side*slot_corner_r/2,-slot_corner_r/2])
+                                rotate([0,90,0]) cylinder(r=slot_corner_r,h=cup_wall+6,center=true);
+                        }
+            }
     }
 }
 
@@ -58,6 +71,13 @@ module phone_pocket() {
         translate([phone_center_x, 0, platform_h+phone_floor])
             rounded_box([phone_inner_w, phone_inner_d, phone_inner_h+1], 2);
     }
+}
+
+module engraving() {
+    translate([phone_center_x,-phone_outer_d/2+0.1,50])
+        rotate([90,0,0])
+            linear_extrude(1.2)
+                text("Red Rocket",size=10,font="Arial:style=Bold",halign="center",valign="center");
 }
 
 module drain_holes() {
@@ -74,6 +94,8 @@ module drain_holes() {
 difference() {
     union() {
         platform();
+        // Circular 9 x 9 mm reinforcement with a 45-degree slope.
+        translate([0,0,platform_h]) cylinder(r1=50,r2=cup_outer_d/2,h=9);
         slotted_cup();
         phone_pocket();
         // Rounded reinforcement at both sides of the joint.
@@ -81,4 +103,5 @@ difference() {
             translate([phone_x0+1,y,5]) cylinder(r=5,h=70);
     }
     drain_holes();
+    engraving();
 }
