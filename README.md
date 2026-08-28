@@ -10,7 +10,7 @@ the browser.
 - Cup wall: 3 mm; four 7 mm vertical slots spaced 90 degrees apart.
 - Round cup platform: 110 mm diameter and 5 mm thick.
 - Cup floor above the platform: 3 mm.
-- Phone pocket: 81 x 16 x 80 mm internal space.
+- Phone pocket: 91 x 16 x 80 mm internal space.
 - Phone walls: 3 mm; phone floor: 5 mm.
 - Six 4 mm drain holes, each fed by a shallow asymmetric rounded-triangle
   collector inspired by a guitar-pick shape.

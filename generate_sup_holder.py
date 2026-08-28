@@ -187,7 +187,7 @@ def main():
     platform_h = 5.0
     platform_d = 110.0
 
-    phone_inner_w = 81.0
+    phone_inner_w = 91.0
     phone_inner_d = 16.0
     phone_inner_h = 80.0
     phone_wall = 3.0

@@ -13,7 +13,7 @@ slot_corner_r = 3;
 platform_d = 110;
 platform_h = 5;
 
-phone_inner_w = 81;
+phone_inner_w = 91;
 phone_inner_d = 16;
 phone_inner_h = 80;
 phone_wall = 3;
