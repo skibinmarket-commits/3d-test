@@ -23,6 +23,28 @@ module inner_volume() {
     hull() { outline_layer(inner_pts,0.93,1,19.25); outline_layer(inner_pts,1.07,7.2,19.25); }
 }
 
+// Open working mouth: a continuous ramp from the original bowl floor to a
+// thin, flat leading edge.  Side walls remain, but taper down at the nose.
+module open_leading_edge_cutter() {
+    polyhedron(
+        points=[
+            [-14,-3,-0.55],[14,-3,-0.55],[-14,-3,10],[14,-3,10],
+            [-13.2,0,-0.72],[13.2,0,-0.72],[-13.2,0,10],[13.2,0,10],
+            [-12.3,2.5,-1.62],[12.3,2.5,-1.62],[-12.3,2.5,10],[12.3,2.5,10],
+            [-10.9,5.5,-2.48],[10.9,5.5,-2.48],[-10.9,5.5,10],[10.9,5.5,10],
+            [-9.5,9,-3.02],[9.5,9,-3.02],[-9.5,9,10],[9.5,9,10]
+        ],
+        faces=[
+            [0,1,3,2],
+            [0,4,5,1],[2,3,7,6],[0,2,6,4],[1,5,7,3],
+            [4,8,9,5],[6,7,11,10],[4,6,10,8],[5,9,11,7],
+            [8,12,13,9],[10,11,15,14],[8,10,14,12],[9,13,15,11],
+            [12,16,17,13],[14,15,19,18],[12,14,18,16],[13,17,19,15],
+            [16,18,19,17]
+        ], convexity=10
+    );
+}
+
 module branch(points,radii) {
     for(i=[0:len(points)-2]) hull() {
         translate(points[i]) sphere(radii[i]);
@@ -56,6 +78,7 @@ module core_model() {
             rope_helix();
         }
         inner_volume();
+        open_leading_edge_cutter();
     }
 }
 

@@ -1,17 +1,19 @@
 # 3D-printable SUP cup and phone holder
 
-## 60 mm branch scoop
+## 90 mm branch scoop
 
 `Лопатка Model 1.stl` is a high-detail sculptural scoop closely based on the
 supplied concept image. It is exactly 90 mm long and includes a deep curved
-bowl, bulbous back, round crooked twig handle, tapered cut branch nubs, a
+bowl with an open, thin, flat working edge, bulbous back, round crooked twig
+handle, tapered cut branch nubs, a
 continuous helical rope wrap, knots, incised bark, raised fibres, and grain on
 both the inner bowl and convex back.
 
 `Лопатка Model 1 Print Set.stl` is the ready-positioned version: the scoop lies
 on its back with the cavity upward, raised 3 mm over a removable 0.7 mm lattice.
-Tapered contact pillars cover the scoop back, handle, and both branch nubs with
-a 0.20 mm breakaway gap. `Лопатка Model 1 Support.stl` contains only that support.
+Tapered contact pillars cover the scoop back, handle, both branch nubs, and the
+new thin leading edge with a 0.24 mm breakaway gap. `Лопатка Model 1 Support.stl`
+contains only that support.
 
 PLA+ starting point for the Print Set: do not auto-drop or separately rearrange
 the shells; 0.12 mm layers, 3 perimeters, **100% infill**, automatic supports

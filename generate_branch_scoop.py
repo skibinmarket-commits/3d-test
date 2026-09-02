@@ -1,6 +1,8 @@
 """Generate a detailed 90 mm carved-branch scoop and breakaway support set."""
 
 from pathlib import Path
+import os
+import time
 
 import manifold3d
 import numpy as np
@@ -115,6 +117,59 @@ def loft_solid(outline, layers):
     return mesh
 
 
+def open_leading_edge_cutter():
+    """Cut an open scoop mouth with a smooth floor running into a thin lip."""
+    # Each station is (Y, half width, floor Z).  The cutter starts outside the
+    # scoop and follows a single continuous ramp into the existing bowl.  Its
+    # width leaves the side walls intact, while allowing them to taper to almost
+    # nothing at the working edge.
+    stations = [
+        (-3.0, 14.0, -0.55),
+        (0.0, 13.2, -0.72),
+        (2.5, 12.3, -1.62),
+        (5.5, 10.9, -2.48),
+        (9.0, 9.50, -3.02),
+    ]
+    top_z = 10.0
+    vertices = []
+    for y_value, half_width, floor_z in stations:
+        vertices.extend(
+            [
+                (-half_width, y_value, floor_z),
+                (half_width, y_value, floor_z),
+                (-half_width, y_value, top_z),
+                (half_width, y_value, top_z),
+            ]
+        )
+
+    faces = []
+    for station_index in range(len(stations) - 1):
+        a = station_index * 4
+        b = (station_index + 1) * 4
+        # Sloping cutter floor, top, and both continuous side faces.
+        faces.extend(
+            [
+                (a, b + 1, a + 1), (a, b, b + 1),
+                (a + 2, a + 3, b + 3), (a + 2, b + 3, b + 2),
+                (a, a + 2, b + 2), (a, b + 2, b),
+                (a + 1, b + 1, b + 3), (a + 1, b + 3, a + 3),
+            ]
+        )
+    last = (len(stations) - 1) * 4
+    faces.extend(
+        [
+            (0, 1, 3), (0, 3, 2),
+            (last, last + 2, last + 3), (last, last + 3, last + 1),
+        ]
+    )
+    cutter = trimesh.Trimesh(
+        vertices=np.asarray(vertices), faces=np.asarray(faces), process=True
+    )
+    if cutter.volume < 0:
+        cutter.invert()
+    return cutter
+
+
 def helix_wrap(turns, y_start, y_end, centre, major_radius, tube_radius):
     count = int(turns * 56) + 1
     values = np.linspace(0, 2 * np.pi * turns, count)
@@ -195,7 +250,10 @@ def build_model():
         [(-3.0, 0.56), (-2.2, 0.70), (-0.8, 0.83), (1.0, 0.93),
          (3.0, 1.0), (5.5, 1.04), (7.2, 1.07)],
     )
-    scoop_shell = trimesh.boolean.difference([outer, inner], engine="manifold")
+    nose_cutter = open_leading_edge_cutter()
+    scoop_shell = trimesh.boolean.difference(
+        [outer, inner, nose_cutter], engine="manifold"
+    )
 
     handle_points = [
         (0.0, 35.5, 0.0), (0.8, 45.0, 1.0), (-0.9, 56.0, 0.3),
@@ -217,7 +275,9 @@ def build_model():
     base = trimesh.boolean.union(
         [scoop_shell, handle, upper_branch, middle_branch, rope], engine="manifold"
     )
-    base = trimesh.boolean.difference([base, inner], engine="manifold")
+    base = trimesh.boolean.difference(
+        [base, inner, nose_cutter], engine="manifold"
+    )
 
     # Incised bark grooves, then raised fibres: both are physical geometry.
     groove_cutters = []
@@ -295,6 +355,9 @@ def build_model():
         [base, *bark_ridges, *branch_ridges, *bowl_grain, *back_grain, *knots],
         engine="manifold",
     )
+    # Re-cut after adding physical grain so the complete leading-edge route is
+    # open and its floor has no transverse ridge or floating texture segment.
+    model = trimesh.boolean.difference([model, nose_cutter], engine="manifold")
     # Exact requested 90 mm length.
     y_length = model.bounds[1, 1] - model.bounds[0, 1]
     model.apply_scale((1.0, 90.0 / y_length, 1.0))
@@ -360,7 +423,7 @@ def build_support_set(model):
 
     contact_xy = []
     # Dense points below the convex scoop back.
-    for y in np.arange(3.0, 40.0, 4.5):
+    for y in [0.7, 2.2, *np.arange(4.0, 40.0, 4.5)]:
         half_width = 12.2 if y <= 20 else max(3.5, 12.2 - (y - 20) * 0.43)
         for x in np.arange(-10.0, 10.1, 4.0):
             if abs(x) > half_width - 0.7:
@@ -411,13 +474,27 @@ def report(label, mesh):
     )
 
 
+def export_stl(mesh, destination, temporary_name):
+    """Write through an ASCII temporary file, then atomically replace output."""
+    temporary = ROOT / temporary_name
+    mesh.export(temporary, file_type="stl")
+    for attempt in range(6):
+        try:
+            os.replace(temporary, destination)
+            return
+        except OSError:
+            if attempt == 5:
+                raise
+            time.sleep(0.25)
+
+
 def main():
     model = build_model()
-    model.export(MODEL_OUT)
+    export_stl(model, MODEL_OUT, "lopatka-model.tmp.stl")
     report(MODEL_OUT.name, model)
     support, print_set = build_support_set(model)
-    support.export(SUPPORT_OUT)
-    print_set.export(PRINT_OUT)
+    export_stl(support, SUPPORT_OUT, "lopatka-support.tmp.stl")
+    export_stl(print_set, PRINT_OUT, "lopatka-print-set.tmp.stl")
     report(SUPPORT_OUT.name, support)
     report(PRINT_OUT.name, print_set)
 
