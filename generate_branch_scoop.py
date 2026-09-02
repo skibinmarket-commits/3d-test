@@ -8,7 +8,7 @@ import trimesh
 from shapely.geometry import LineString, Polygon
 
 
-OUT = Path(__file__).with_name("Branch_Scoop_60mm.stl")
+OUT = Path(__file__).with_name("Лопатка Model 1.stl")
 
 
 def extrude(shape, height, z=0.0):
