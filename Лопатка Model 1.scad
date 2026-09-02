@@ -1,43 +1,60 @@
-// 60 mm support-free miniature scoop with a branch-shaped handle.
-// Print flat back down, cavity facing up. All dimensions are millimetres.
-$fn = 96;
+// Sculptural 60 mm miniature scoop inspired by a carved branch.
+// The Python generator adds fine printable bark and bowl grain to the STL.
+$fn=96;
 
-module path_hull(points, r, h) {
-    linear_extrude(h)
-        hull() for (p=points) translate(p) circle(r=r);
-}
+module ellipsoid(size,pos) { translate(pos) scale(size) sphere(1); }
 
-module scoop_body() {
-    linear_extrude(6)
-        polygon([
-            [-6.8,0],[-7.6,0.5],[-8,2],[-8,12],[-7.5,16],[-6,20],
-            [-4.2,24],[-3.4,26],[3.4,26],[4.2,24],[6,20],[7.5,16],
-            [8,12],[8,2],[7.6,0.5],[6.8,0]
-        ]);
-}
-
-module cavity() {
-    translate([0,0,2]) linear_extrude(5)
-        polygon([
-            [-5,2],[-5.8,3],[-5.8,12],[-5.2,15.5],[-3.8,19],[-2.6,22],
-            [2.6,22],[3.8,19],[5.2,15.5],[5.8,12],[5.8,3],[5,2]
-        ]);
-}
-
-module model() {
-    difference() {
-        union() {
-            scoop_body();
-            path_hull([[0,23],[0.4,30],[-0.6,38],[0.2,46],[0.9,53],[0.3,56.7]],3.3,6);
-            translate([0,0,0.2]) path_hull([[-0.3,44],[-4.7,49]],1.55,5.5);
-            translate([0,0,0.2]) path_hull([[0,35],[4.2,39]],1.45,5.3);
-            for (y=[25,26.4,27.8])
-                translate([0,y,5.8]) rotate([0,90,0]) cylinder(r=0.58,h=8.5,center=true);
-            for (k=[[-0.8,33,1],[0.9,42,0.9],[-0.5,52,0.85]])
-                translate([k[0],k[1],6]) cylinder(r=k[2],h=0.7);
-        }
-        cavity();
+module twig() {
+    pts=[[0,23.5,0.1],[0.5,30,0.8],[-0.6,37,0.2],[0.4,44,0.9],[0,51,0.5],[0.6,56.7,0.8]];
+    rs=[3.75,3.55,3.35,3.25,3.15,3.3];
+    for(i=[0:len(pts)-2]) hull() {
+        translate(pts[i]) sphere(rs[i]);
+        translate(pts[i+1]) sphere(rs[i+1]);
     }
 }
 
-model();
+module branch(points,radii) {
+    for(i=[0:len(points)-2]) hull() {
+        translate(points[i]) sphere(radii[i]);
+        translate(points[i+1]) sphere(radii[i+1]);
+    }
+}
+
+module torus_y(R,r,pos) {
+    translate(pos) rotate([90,0,0]) rotate_extrude()
+        translate([R,0]) circle(r);
+}
+
+outer_pts=[[-7,0],[-8,2],[-8,13],[-7.4,17],[-5.8,21.5],[-3.5,27],
+           [3.5,27],[5.8,21.5],[7.4,17],[8,13],[8,2],[7,0]];
+inner_pts=[[-5.2,2],[-6,3],[-6,13],[-5.2,16.5],[-3.4,21],[-2.6,23.5],
+           [2.6,23.5],[3.4,21],[5.2,16.5],[6,13],[6,3],[5.2,2]];
+
+module outline_layer(points,s,z,cy) {
+    translate([0,0,z]) linear_extrude(0.02)
+        translate([0,cy]) scale([s,s]) translate([0,-cy]) polygon(points);
+}
+
+module outer_volume() {
+    hull() { outline_layer(outer_pts,0.78,-5.3,13.75); outline_layer(outer_pts,1,-1,13.75); }
+    hull() { outline_layer(outer_pts,1,-1,13.75); outline_layer(outer_pts,1,1.5,13.75); }
+    hull() { outline_layer(outer_pts,1,1.5,13.75); outline_layer(outer_pts,0.82,5,13.75); }
+}
+
+module inner_volume() {
+    hull() { outline_layer(inner_pts,0.55,-2.25,12.75); outline_layer(inner_pts,0.92,1,12.75); }
+    hull() { outline_layer(inner_pts,0.92,1,12.75); outline_layer(inner_pts,1.08,7,12.75); }
+}
+
+module scoop_shell() { difference() { outer_volume(); inner_volume(); } }
+
+difference() {
+    union() {
+        scoop_shell();
+        twig();
+        branch([[-0.1,45,0.7],[-3.3,48.3,0.8],[-5.1,50,0.6]],[1.8,1.45,1.05]);
+        branch([[0.1,35,0.4],[3,38,0.8],[4.6,39.5,0.7]],[1.65,1.3,0.95]);
+        for(i=[0:3]) torus_y(3.90-0.06*i,0.45,[0.15,25.3+1.05*i,0.15]);
+    }
+    inner_volume();
+}
